@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Snap Talk",
+    "slug": "snap-talk",
+    "scheme": "snaptalk",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.snaptalk.mobile"
+    },
+    "android": {
+      "package": "com.snaptalk.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#0F1724"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Snap Talk needs photo access so you can share posts, stories, reels, and chat images."
+        }
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5acc18dd-c05f-4cbd-8617-c9ced8298133"
+      }
+    }
+  }
+}
