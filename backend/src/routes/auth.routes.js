@@ -7,6 +7,57 @@ const validate = require('../middleware/validate');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /auth/signup:
+ *   post:
+ *     summary: Create a new user account
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - fullName
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 24
+ *               fullName:
+ *                 type: string
+ *                 minLength: 2
+ *                 maxLength: 80
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               mobile:
+ *                 type: string
+ *                 minLength: 7
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 maxLength: 72
+ *     responses:
+ *       201:
+ *         description: Account created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ */
 router.post(
   '/signup',
   authLimiter,
@@ -25,6 +76,35 @@ router.post(
   authController.register
 );
 
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Login user
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - identifier
+ *               - password
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 description: Email, mobile, or username
+ *               password:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
+ */
 router.post(
   '/login',
   authLimiter,
@@ -59,7 +139,54 @@ router.post(
   authController.resetPassword
 );
 
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Get current user profile
+ *     tags:
+ *       - Authentication
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/me', protect, authController.getMe);
+
+/**
+ * @swagger
+ * /auth/setup-profile:
+ *   patch:
+ *     summary: Setup user profile after signup
+ *     tags:
+ *       - Authentication
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *               username:
+ *                 type: string
+ *               bio:
+ *                 type: string
+ *               avatar:
+ *                 type: string
+ *               website:
+ *                 type: string
+ *               isPrivate:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Profile setup completed
+ */
 router.patch(
   '/setup-profile',
   [

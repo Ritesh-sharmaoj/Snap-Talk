@@ -6,8 +6,83 @@ const validate = require('../middleware/validate');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /users/search:
+ *   get:
+ *     summary: Search users by username or fullName
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Search query
+ *     responses:
+ *       200:
+ *         description: Users found
+ */
 router.get('/search', protect, userController.searchUsers);
+
+/**
+ * @swagger
+ * /users/suggested:
+ *   get:
+ *     summary: Get suggested users to follow
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Suggested users retrieved
+ */
 router.get('/suggested', protect, userController.suggestedUsers);
+
+/**
+ * @swagger
+ * /users/me:
+ *   patch:
+ *     summary: Update current user profile
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *                 minLength: 2
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               mobile:
+ *                 type: string
+ *               bio:
+ *                 type: string
+ *                 maxLength: 160
+ *               website:
+ *                 type: string
+ *                 format: uri
+ *               avatar:
+ *                 type: string
+ *                 format: uri
+ *               isPrivate:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ */
 router.patch(
   '/me',
   [

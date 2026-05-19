@@ -4,6 +4,8 @@ const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpecs = require('./config/swagger');
 const ApiError = require('./utils/apiError');
 
 dotenv.config();
@@ -67,6 +69,8 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, { customCss: '.swagger-ui .topbar { display: none }' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);

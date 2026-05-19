@@ -9,7 +9,15 @@ export const validateAuth = ({ username, fullName, identifier, password, mode })
   }
 
   if (!identifier) errors.identifier = 'Email, mobile, or username is required.';
-  if (!password || password.length < 6) errors.password = 'Password must be at least 6 characters.';
+  if (!password) {
+    errors.password = 'Password is required.';
+  } else if (mode === 'signup') {
+    if (password.length < 8) {
+      errors.password = 'Password must be at least 8 characters.';
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      errors.password = 'Use upper, lower, and a number in the password.';
+    }
+  }
 
   return errors;
 };

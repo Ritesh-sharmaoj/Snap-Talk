@@ -42,7 +42,7 @@ export default function SignupScreen({ navigation }) {
           <AppInput label="Full name" icon="user" placeholder="Aarya Mehta" value={form.fullName} onChangeText={(value) => update('fullName', value)} error={errors.fullName} />
           <AppInput label="Username" icon="hash" placeholder="aarya" value={form.username} onChangeText={(value) => update('username', value)} error={errors.username} />
           <AppInput label="Email or mobile" icon="at-sign" placeholder="aarya@example.com" value={form.identifier} onChangeText={(value) => update('identifier', value)} error={errors.identifier} />
-          <AppInput label="Password" icon="lock" placeholder="Minimum 6 characters" secureTextEntry value={form.password} onChangeText={(value) => update('password', value)} error={errors.password} />
+          <AppInput label="Password" icon="lock" placeholder="8+ chars, upper/lower/number" secureTextEntry value={form.password} onChangeText={(value) => update('password', value)} error={errors.password} />
           <AppButton label="Create account" loading={loading} onPress={submit} icon={<Feather name="user-plus" color={colors.card} size={18} />} />
         </View>
         <Pressable style={styles.bottom} onPress={() => navigation.navigate('Login')}>
