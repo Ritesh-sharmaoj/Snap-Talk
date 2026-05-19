@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { mockPosts, mockUsers } from '../data/mockData';
 import AppButton from '../components/AppButton';
 import ScreenHeader from '../components/ScreenHeader';
@@ -9,20 +11,73 @@ import SearchBar from '../components/SearchBar';
 import UserRow from '../components/UserRow';
 
 export default function SearchExploreScreen() {
+  const { isDemo } = useAuth();
   const [query, setQuery] = useState('');
   const [followed, setFollowed] = useState({});
+  const [users, setUsers] = useState(mockUsers.slice(1));
+  const [posts, setPosts] = useState(mockPosts);
+  const [loadingFollow, setLoadingFollow] = useState({});
 
-  const users = useMemo(() => {
-    if (!query.trim()) return mockUsers.slice(1);
-    const q = query.toLowerCase();
-    return mockUsers.filter((user) => user.username.includes(q) || user.fullName.toLowerCase().includes(q));
-  }, [query]);
+  useEffect(() => {
+    const load = async () => {
+      if (isDemo) {
+        const q = query.toLowerCase().replace('#', '');
+        setUsers(
+          query.trim()
+            ? mockUsers.filter((user) => user.username.includes(q) || user.fullName.toLowerCase().includes(q))
+            : mockUsers.slice(1)
+        );
+        setPosts(
+          query.trim()
+            ? mockPosts.filter((post) => post.caption.toLowerCase().includes(q) || post.hashtags?.includes(q))
+            : mockPosts
+        );
+        return;
+      }
 
-  const posts = useMemo(() => {
-    if (!query.trim()) return mockPosts;
-    const q = query.toLowerCase().replace('#', '');
-    return mockPosts.filter((post) => post.caption.toLowerCase().includes(q) || post.hashtags?.includes(q));
-  }, [query]);
+      try {
+        if (query.trim()) {
+          const normalized = query.trim().replace('#', '');
+          const [userRes, postRes] = await Promise.all([
+            api.get(`/users/search?q=${encodeURIComponent(normalized)}`),
+            query.trim().startsWith('#') ? api.get(`/posts/hashtag/${normalized}`) : api.get('/posts/explore'),
+          ]);
+          setUsers(userRes.data.data);
+          setPosts(postRes.data.data);
+        } else {
+          const [userRes, postRes] = await Promise.all([api.get('/users/suggested'), api.get('/posts/explore')]);
+          setUsers(userRes.data.data);
+          setPosts(postRes.data.data);
+        }
+      } catch (_error) {
+        setUsers(mockUsers.slice(1));
+        setPosts(mockPosts);
+      }
+    };
+
+    const timer = setTimeout(load, 350);
+    return () => clearTimeout(timer);
+  }, [query, isDemo]);
+
+  const toggleFollow = async (user) => {
+    const current = Object.prototype.hasOwnProperty.call(followed, user._id) ? followed[user._id] : Boolean(user.isFollowing);
+    setFollowed((state) => ({ ...state, [user._id]: !current }));
+
+    if (isDemo) return;
+
+    try {
+      setLoadingFollow((state) => ({ ...state, [user._id]: true }));
+      if (current) {
+        await api.delete(`/follow/${user._id}`);
+      } else {
+        await api.post(`/follow/${user._id}`);
+      }
+    } catch (_error) {
+      setFollowed((state) => ({ ...state, [user._id]: current }));
+    } finally {
+      setLoadingFollow((state) => ({ ...state, [user._id]: false }));
+    }
+  };
 
   return (
     <View style={styles.screen}>
@@ -37,9 +92,10 @@ export default function SearchExploreScreen() {
               user={user}
               right={
                 <AppButton
-                  label={followed[user._id] ? 'Following' : 'Follow'}
-                  variant={followed[user._id] ? 'ghost' : 'primary'}
-                  onPress={() => setFollowed((current) => ({ ...current, [user._id]: !current[user._id] }))}
+                  label={(Object.prototype.hasOwnProperty.call(followed, user._id) ? followed[user._id] : user.isFollowing) ? 'Following' : 'Follow'}
+                  variant={(Object.prototype.hasOwnProperty.call(followed, user._id) ? followed[user._id] : user.isFollowing) ? 'ghost' : 'primary'}
+                  loading={loadingFollow[user._id]}
+                  onPress={() => toggleFollow(user)}
                   style={styles.follow}
                 />
               }

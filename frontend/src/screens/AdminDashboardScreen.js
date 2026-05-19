@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { api } from '../api/client';
 import { mockAdmin } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/Avatar';
 import ScreenHeader from '../components/ScreenHeader';
 
@@ -17,7 +19,26 @@ const StatCard = ({ icon, label, value }) => (
 );
 
 export default function AdminDashboardScreen({ navigation }) {
-  const { stats, reports } = mockAdmin;
+  const { isDemo } = useAuth();
+  const [stats, setStats] = useState(mockAdmin.stats);
+  const [reports, setReports] = useState(mockAdmin.reports);
+
+  useEffect(() => {
+    const load = async () => {
+      if (isDemo) return;
+
+      try {
+        const [statsRes, reportsRes] = await Promise.all([api.get('/admin/dashboard'), api.get('/admin/reports')]);
+        setStats(statsRes.data.data);
+        setReports(reportsRes.data.data);
+      } catch (_error) {
+        setStats(mockAdmin.stats);
+        setReports(mockAdmin.reports);
+      }
+    };
+
+    load();
+  }, [isDemo]);
 
   return (
     <View style={styles.screen}>

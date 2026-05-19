@@ -51,7 +51,7 @@ export default function LoginScreen({ navigation }) {
         <AppInput
           icon="lock"
           label="Password"
-          placeholder="••••••••"
+          placeholder="Password"
           secureTextEntry
           value={password}
           onChangeText={setPassword}

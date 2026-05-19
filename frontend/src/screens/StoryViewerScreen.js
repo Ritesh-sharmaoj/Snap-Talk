@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
+import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { timeAgo } from '../utils/timeAgo';
 import Avatar from '../components/Avatar';
 import IconButton from '../components/IconButton';
 
 export default function StoryViewerScreen({ navigation, route }) {
   const { story } = route.params;
+  const { isDemo } = useAuth();
+
+  useEffect(() => {
+    if (!isDemo && story?._id) {
+      api.get(`/stories/${story._id}`).catch(() => {});
+    }
+  }, [isDemo, story?._id]);
 
   return (
     <ImageBackground source={{ uri: story.mediaUrl }} style={styles.screen}>

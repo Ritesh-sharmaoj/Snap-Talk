@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import AppButton from '../components/AppButton';
 import ScreenHeader from '../components/ScreenHeader';
@@ -20,15 +21,33 @@ const SettingRow = ({ icon, title, subtitle, right, onPress }) => (
 );
 
 export default function SettingsScreen({ navigation }) {
-  const { user, logout } = useAuth();
+  const { isDemo, updateProfile, user, logout } = useAuth();
   const [privateAccount, setPrivateAccount] = useState(Boolean(user.isPrivate));
   const [pushReady, setPushReady] = useState(true);
 
   const confirmDelete = () => {
-    Alert.alert('Delete account', 'This calls DELETE /api/users/me on a connected backend.', [
+    Alert.alert('Delete account', 'Your account will be deleted from Snap Talk.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout demo', style: 'destructive', onPress: logout },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if (!isDemo) {
+            await api.delete('/users/me');
+          }
+          await logout();
+        },
+      },
     ]);
+  };
+
+  const togglePrivate = async (value) => {
+    setPrivateAccount(value);
+    try {
+      await updateProfile({ isPrivate: value });
+    } catch (_error) {
+      setPrivateAccount(!value);
+    }
   };
 
   return (
@@ -43,7 +62,7 @@ export default function SettingsScreen({ navigation }) {
           icon="shield"
           title="Private account"
           subtitle="Approve followers before they see posts"
-          right={<Switch value={privateAccount} onValueChange={setPrivateAccount} trackColor={{ true: colors.mint, false: colors.line }} />}
+          right={<Switch value={privateAccount} onValueChange={togglePrivate} trackColor={{ true: colors.mint, false: colors.line }} />}
         />
         <SettingRow
           icon="bell"

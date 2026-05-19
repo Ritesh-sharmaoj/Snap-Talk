@@ -13,6 +13,7 @@ import ScreenHeader from '../components/ScreenHeader';
 export default function CreatePostScreen() {
   const { isDemo } = useAuth();
   const [asset, setAsset] = useState(null);
+  const [mode, setMode] = useState('post');
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,17 +71,37 @@ export default function CreatePostScreen() {
         .filter(Boolean);
 
       if (!isDemo) {
-        await api.post('/posts', {
-          ...media,
-          caption,
-          hashtags: tagList,
-        });
+        if (mode === 'story') {
+          await api.post('/stories', {
+            mediaUrl: media.mediaUrl,
+            mediaType: media.mediaType,
+            caption,
+          });
+        } else if (mode === 'reel') {
+          if (media.mediaType !== 'video') {
+            Alert.alert('Video required', 'Reel publish karne ke liye video select karo.');
+            return;
+          }
+
+          await api.post('/reels', {
+            videoUrl: media.mediaUrl,
+            caption,
+            hashtags: tagList,
+            audioTitle: 'Original audio',
+          });
+        } else {
+          await api.post('/posts', {
+            ...media,
+            caption,
+            hashtags: tagList,
+          });
+        }
       }
 
       setAsset(null);
       setCaption('');
       setHashtags('');
-      Alert.alert('Published', 'Your post is live on Snap Talk.');
+      Alert.alert('Published', `Your ${mode} is live on Snap Talk.`);
     } catch (error) {
       Alert.alert('Publish failed', apiMessage(error));
     } finally {
@@ -105,6 +126,13 @@ export default function CreatePostScreen() {
             </View>
           )}
         </Pressable>
+        <View style={styles.modes}>
+          {['post', 'story', 'reel'].map((item) => (
+            <Pressable key={item} style={[styles.mode, mode === item && styles.modeActive]} onPress={() => setMode(item)}>
+              <Text style={[styles.modeText, mode === item && styles.modeTextActive]}>{item.toUpperCase()}</Text>
+            </Pressable>
+          ))}
+        </View>
         <View style={styles.form}>
           <AppInput label="Caption" icon="edit-3" placeholder="What is happening?" value={caption} onChangeText={setCaption} multiline />
           <AppInput label="Hashtags" icon="hash" placeholder="travel, design, food" value={hashtags} onChangeText={setHashtags} />
@@ -167,5 +195,32 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
     marginTop: 18,
+  },
+  modes: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+  },
+  mode: {
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderColor: colors.line,
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    height: 42,
+    justifyContent: 'center',
+  },
+  modeActive: {
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
+  },
+  modeText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  modeTextActive: {
+    color: colors.card,
   },
 });

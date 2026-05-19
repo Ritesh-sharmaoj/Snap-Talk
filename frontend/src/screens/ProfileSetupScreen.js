@@ -3,6 +3,7 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import AppButton from '../components/AppButton';
 import AppInput from '../components/AppInput';
@@ -10,7 +11,7 @@ import Avatar from '../components/Avatar';
 import ScreenHeader from '../components/ScreenHeader';
 
 export default function ProfileSetupScreen() {
-  const { user, setupProfile } = useAuth();
+  const { isDemo, user, setupProfile } = useAuth();
   const [avatar, setAvatar] = useState(user?.avatar || '');
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [bio, setBio] = useState(user?.bio || '');
@@ -38,7 +39,22 @@ export default function ProfileSetupScreen() {
 
     try {
       setLoading(true);
-      await setupProfile({ avatar, fullName, bio, website });
+      let avatarUrl = avatar;
+
+      if (!isDemo && avatar?.startsWith('file')) {
+        const data = new FormData();
+        data.append('media', {
+          uri: avatar,
+          name: `snap-talk-avatar-${Date.now()}.jpg`,
+          type: 'image/jpeg',
+        });
+        const response = await api.post('/uploads', data, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        avatarUrl = response.data.data.url;
+      }
+
+      await setupProfile({ avatar: avatarUrl, fullName, bio, website });
     } catch (error) {
       Alert.alert('Profile setup failed', error.message);
     } finally {

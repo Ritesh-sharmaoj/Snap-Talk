@@ -6,10 +6,47 @@ import { timeAgo } from '../utils/timeAgo';
 import Avatar from './Avatar';
 import IconButton from './IconButton';
 
-export default function PostCard({ post, onComment, onProfile, onShare }) {
+export default function PostCard({ post, onComment, onLike, onProfile, onSave, onShare }) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
-  const likes = (post.likesCount || post.likes?.length || 0) + (liked ? 1 : 0);
+  const [likes, setLikes] = useState(post.likesCount || post.likes?.length || 0);
+  const [saves, setSaves] = useState(post.savesCount || post.saves?.length || 0);
+
+  const toggleLike = async () => {
+    const previousLiked = liked;
+    const previousLikes = likes;
+    setLiked(!previousLiked);
+    setLikes((value) => value + (previousLiked ? -1 : 1));
+
+    try {
+      const result = await onLike?.(post);
+      if (result) {
+        setLiked(result.liked);
+        setLikes(result.likesCount);
+      }
+    } catch (_error) {
+      setLiked(previousLiked);
+      setLikes(previousLikes);
+    }
+  };
+
+  const toggleSave = async () => {
+    const previousSaved = saved;
+    const previousSaves = saves;
+    setSaved(!previousSaved);
+    setSaves((value) => value + (previousSaved ? -1 : 1));
+
+    try {
+      const result = await onSave?.(post);
+      if (result) {
+        setSaved(result.saved);
+        setSaves(result.savesCount ?? previousSaves);
+      }
+    } catch (_error) {
+      setSaved(previousSaved);
+      setSaves(previousSaves);
+    }
+  };
 
   return (
     <View style={styles.card}>
@@ -18,7 +55,7 @@ export default function PostCard({ post, onComment, onProfile, onShare }) {
         <View style={styles.identity}>
           <Text style={styles.name}>{post.author.fullName}</Text>
           <Text style={styles.meta}>
-            @{post.author.username} · {timeAgo(post.createdAt)}
+            @{post.author.username} - {timeAgo(post.createdAt)}
           </Text>
         </View>
         <IconButton name="more-horizontal" size={38} />
@@ -34,7 +71,7 @@ export default function PostCard({ post, onComment, onProfile, onShare }) {
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={() => setLiked((value) => !value)} style={styles.action}>
+        <Pressable onPress={toggleLike} style={styles.action}>
           <Ionicons name={liked ? 'heart' : 'heart-outline'} size={25} color={liked ? colors.coral : colors.ink} />
           <Text style={styles.actionText}>{likes}</Text>
         </Pressable>
@@ -46,8 +83,9 @@ export default function PostCard({ post, onComment, onProfile, onShare }) {
           <Feather name="send" size={22} color={colors.ink} />
           <Text style={styles.actionText}>{post.sharesCount || 0}</Text>
         </Pressable>
-        <Pressable onPress={() => setSaved((value) => !value)} style={[styles.action, styles.save]}>
+        <Pressable onPress={toggleSave} style={[styles.action, styles.save]}>
           <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={25} color={saved ? colors.mintDark : colors.ink} />
+          {saves ? <Text style={styles.actionText}>{saves}</Text> : null}
         </Pressable>
       </View>
 

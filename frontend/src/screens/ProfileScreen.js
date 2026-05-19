@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { mockPosts } from '../data/mockData';
 import AppButton from '../components/AppButton';
@@ -16,30 +17,57 @@ const Stat = ({ label, value }) => (
 );
 
 export default function ProfileScreen({ navigation }) {
-  const { user } = useAuth();
-  const [posts] = useState(mockPosts);
+  const { isDemo, user } = useAuth();
+  const [profile, setProfile] = useState(user);
+  const [posts, setPosts] = useState(mockPosts);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (isDemo) return;
+
+      try {
+        const [profileRes, postsRes] = await Promise.all([
+          api.get(`/users/${user.username}`),
+          api.get(`/users/${user.username}/posts`),
+        ]);
+        setProfile(profileRes.data.data);
+        setPosts(postsRes.data.data);
+      } catch (_error) {
+        setProfile(user);
+        setPosts(mockPosts);
+      }
+    };
+
+    loadProfile();
+  }, [isDemo, user]);
 
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
-          <Text style={styles.username}>@{user.username}</Text>
+          <Text style={styles.username}>@{profile.username}</Text>
           <IconButton name="settings" onPress={() => navigation.navigate('Settings')} />
         </View>
         <View style={styles.profileRow}>
-          <Avatar user={user} size={92} ring />
+          <Avatar user={profile} size={92} ring />
           <View style={styles.stats}>
-            <Stat label="Posts" value={user.postsCount || posts.length} />
-            <Stat label="Followers" value={user.followersCount || 0} />
-            <Stat label="Following" value={user.followingCount || 0} />
+            <Stat label="Posts" value={profile.postsCount || posts.length} />
+            <Stat label="Followers" value={profile.followersCount || 0} />
+            <Stat label="Following" value={profile.followingCount || 0} />
           </View>
         </View>
-        <Text style={styles.name}>{user.fullName}</Text>
-        <Text style={styles.bio}>{user.bio || 'Add a bio to tell people what you create.'}</Text>
-        {user.website ? <Text style={styles.website}>{user.website}</Text> : null}
+        <Text style={styles.name}>{profile.fullName}</Text>
+        <Text style={styles.bio}>{profile.bio || 'Add a bio to tell people what you create.'}</Text>
+        {profile.website ? <Text style={styles.website}>{profile.website}</Text> : null}
         <View style={styles.actions}>
           <AppButton label="Edit profile" variant="ghost" onPress={() => navigation.navigate('EditProfile')} icon={<Feather name="edit-3" size={17} color={colors.ink} />} style={styles.actionButton} />
-          <AppButton label="Share profile" variant="ghost" onPress={() => {}} icon={<Feather name="send" size={17} color={colors.ink} />} style={styles.actionButton} />
+          <AppButton
+            label="Share profile"
+            variant="ghost"
+            onPress={() => Alert.alert('Profile link', `snaptalk://profile/${profile.username}`)}
+            icon={<Feather name="send" size={17} color={colors.ink} />}
+            style={styles.actionButton}
+          />
         </View>
         <View style={styles.tabs}>
           <Feather name="grid" size={20} color={colors.ink} />

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { api } from '../api/client';
@@ -37,6 +37,14 @@ export default function NotificationsScreen({ navigation }) {
     load();
   }, [load]);
 
+  const markRead = async (item) => {
+    setItems((current) => current.map((notification) => (notification._id === item._id ? { ...notification, read: true } : notification)));
+
+    if (!isDemo && !item.read) {
+      await api.patch(`/notifications/${item._id}/read`).catch(() => {});
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <ScreenHeader title="Notifications" onBack={() => navigation.goBack()} />
@@ -46,7 +54,7 @@ export default function NotificationsScreen({ navigation }) {
         contentContainerStyle={styles.list}
         ListEmptyComponent={<EmptyState icon="bell" title="No notifications" text="Likes, comments, follows, and messages will appear here." />}
         renderItem={({ item }) => (
-          <View style={[styles.item, !item.read && styles.unread]}>
+          <Pressable style={[styles.item, !item.read && styles.unread]} onPress={() => markRead(item)}>
             <Avatar user={item.actor} size={48} />
             <View style={styles.copy}>
               <Text style={styles.text}>
@@ -57,7 +65,7 @@ export default function NotificationsScreen({ navigation }) {
             <View style={styles.icon}>
               <Feather name={iconFor[item.type] || 'bell'} size={17} color={colors.mintDark} />
             </View>
-          </View>
+          </Pressable>
         )}
       />
     </View>

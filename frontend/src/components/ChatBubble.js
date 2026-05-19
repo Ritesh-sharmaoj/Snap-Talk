@@ -11,7 +11,7 @@ export default function ChatBubble({ message, mine }) {
       </View>
       <Text style={[styles.time, mine && styles.mineTime]}>
         {timeAgo(message.createdAt)}
-        {mine && message.seen ? ' · seen' : ''}
+        {mine && message.seen ? ' - seen' : ''}
       </Text>
     </View>
   );

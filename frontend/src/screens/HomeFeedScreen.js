@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { mockPosts, mockStories } from '../data/mockData';
 import EmptyState from '../components/EmptyState';
 import IconButton from '../components/IconButton';
+import CommentSheet from '../components/CommentSheet';
 import PostCard from '../components/PostCard';
 import SnapLogo from '../components/SnapLogo';
 import StoryBubble from '../components/StoryBubble';
@@ -17,6 +18,7 @@ export default function HomeFeedScreen({ navigation }) {
   const [posts, setPosts] = useState(mockPosts);
   const [stories, setStories] = useState(mockStories);
   const [refreshing, setRefreshing] = useState(false);
+  const [commentTarget, setCommentTarget] = useState(null);
 
   const load = useCallback(async () => {
     if (isDemo) return;
@@ -39,6 +41,29 @@ export default function HomeFeedScreen({ navigation }) {
     setRefreshing(true);
     await load();
     setRefreshing(false);
+  };
+
+  const likePost = async (post) => {
+    if (isDemo) return null;
+    const response = await api.post(`/likes/posts/${post._id}`);
+    return response.data.data;
+  };
+
+  const savePost = async (post) => {
+    if (isDemo) return null;
+    const response = await api.post(`/posts/${post._id}/save`);
+    return response.data.data;
+  };
+
+  const sharePost = async (post) => {
+    if (isDemo) {
+      Alert.alert('Share tracked', 'Demo mode me share local count update hota hai.');
+      return null;
+    }
+
+    const response = await api.post(`/posts/${post._id}/share`);
+    Alert.alert('Share tracked', 'Post share count update ho gaya.');
+    return response.data.data;
   };
 
   return (
@@ -72,14 +97,23 @@ export default function HomeFeedScreen({ navigation }) {
             <PostCard
               key={post._id}
               post={post}
-              onComment={() => Alert.alert('Comments', 'Comment sheet is API-ready. Use /api/comments/Post/:postId.')}
-              onShare={() => Alert.alert('Share', 'Share count is tracked through /api/posts/:postId/share.')}
+              onComment={() => setCommentTarget(post)}
+              onLike={likePost}
+              onSave={savePost}
+              onShare={sharePost}
             />
           ))
         ) : (
           <EmptyState icon="image" title="Your feed is waiting" text="Follow people or publish a post to fill this space." />
         )}
       </ScrollView>
+      <CommentSheet
+        visible={Boolean(commentTarget)}
+        targetType="Post"
+        targetId={commentTarget?._id}
+        isDemo={isDemo}
+        onClose={() => setCommentTarget(null)}
+      />
     </View>
   );
 }
