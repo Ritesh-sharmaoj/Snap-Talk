@@ -5,7 +5,18 @@ const createToken = require('../utils/createToken');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const Reel = require('../models/Reel');
+const Story = require('../models/Story');
+const Comment = require('../models/Comment');
+const Message = require('../models/Message');
 const Report = require('../models/Report');
+
+const models = {
+  Post,
+  Reel,
+  Story,
+  Comment,
+  Message,
+};
 
 const adminLogin = asyncHandler(async (req, res) => {
   const { identifier, password } = matchedData(req);
@@ -109,17 +120,24 @@ const updateReport = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Report updated.', data: report });
 });
 
-const deleteReportedPost = asyncHandler(async (req, res) => {
-  const post = await Post.findById(req.params.postId);
+const deleteContent = asyncHandler(async (req, res) => {
+  const { contentType, contentId } = req.params;
+  const Model = models[contentType];
 
-  if (!post) {
-    throw new ApiError(404, 'Post not found.');
+  if (!Model) {
+    throw new ApiError(400, 'Invalid content type.');
   }
 
-  post.isDeleted = true;
-  await post.save();
+  const content = await Model.findById(contentId);
 
-  res.json({ success: true, message: 'Reported post deleted.' });
+  if (!content || content.isDeleted) {
+    throw new ApiError(404, 'Content not found.');
+  }
+
+  content.isDeleted = true;
+  await content.save();
+
+  res.json({ success: true, message: `${contentType} deleted successfully.` });
 });
 
 module.exports = {
@@ -129,5 +147,5 @@ module.exports = {
   toggleBlockUser,
   listReports,
   updateReport,
-  deleteReportedPost,
+  deleteContent,
 };

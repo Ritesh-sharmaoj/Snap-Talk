@@ -40,6 +40,14 @@ const storySchema = new mongoose.Schema(
       required: true,
       index: { expires: 0 },
     },
+    reportsCount: {
+      type: Number,
+      default: 0,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

@@ -9,60 +9,146 @@ import AppButton from '../components/AppButton';
 import Avatar from '../components/Avatar';
 import IconButton from '../components/IconButton';
 
-const Stat = ({ label, value }) => (
-  <View style={styles.stat}>
+const Stat = ({ label, value, onPress }) => (
+  <Pressable style={styles.stat} onPress={onPress} disabled={!onPress}>
     <Text style={styles.statValue}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
-  </View>
+  </Pressable>
 );
 
-export default function ProfileScreen({ navigation }) {
-  const { isDemo, user } = useAuth();
-  const [profile, setProfile] = useState(user);
-  const [posts, setPosts] = useState(mockPosts);
+export default function ProfileScreen({ navigation, route }) {
+  const { isDemo, user: currentUser } = useAuth();
+  const usernameParam = route.params?.username;
+  const isOwnProfile = !usernameParam || usernameParam === currentUser.username;
+  const [profile, setProfile] = useState(isOwnProfile ? currentUser : null);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('grid');
+  const [following, setFollowing] = useState(false);
+  const [loadingAction, setLoadingAction] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (isDemo) return;
-
       try {
+        setLoading(true);
+        const target = usernameParam || currentUser.username;
         const [profileRes, postsRes] = await Promise.all([
-          api.get(`/users/${user.username}`),
-          api.get(`/users/${user.username}/posts`),
+          api.get(`/users/${target}`),
+          activeTab === 'saved' && isOwnProfile ? api.get('/users/me/saved-posts') : api.get(`/users/${target}/posts`),
         ]);
         setProfile(profileRes.data.data);
         setPosts(postsRes.data.data);
+        setFollowing(profileRes.data.data.isFollowing);
       } catch (_error) {
-        setProfile(user);
-        setPosts(mockPosts);
+        if (isDemo && isOwnProfile) {
+          setProfile(currentUser);
+          setPosts(mockPosts);
+        } else if (isOwnProfile) {
+          setProfile(currentUser);
+          setPosts([]);
+        } else {
+          setPosts([]);
+        }
+      } finally {
+        setLoading(false);
       }
     };
 
     loadProfile();
-  }, [isDemo, user]);
+  }, [isDemo, currentUser, usernameParam, isOwnProfile, activeTab]);
+
+  const toggleFollow = async () => {
+    if (isDemo || isOwnProfile) return;
+
+    try {
+      setLoadingAction(true);
+      if (following) {
+        await api.delete(`/follow/${profile._id}`);
+        setFollowing(false);
+      } else {
+        await api.post(`/follow/${profile._id}`);
+        setFollowing(true);
+      }
+    } catch (error) {
+      Alert.alert('Action failed', error.response?.data?.message || 'Try again later.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const blockUser = async () => {
+    Alert.alert('Block user?', `You won't be able to see each other's posts or profiles.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Block',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setLoadingAction(true);
+            await api.post(`/users/${profile._id}/block`);
+            navigation.goBack();
+          } catch (error) {
+            Alert.alert('Block failed', error.response?.data?.message || 'Try again later.');
+          } finally {
+            setLoadingAction(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  if (loading && !profile) {
+    return (
+      <View style={[styles.screen, styles.center]}>
+        <Text style={styles.statLabel}>Loading profile...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
           <Text style={styles.username}>@{profile.username}</Text>
-          <IconButton name="settings" onPress={() => navigation.navigate('Settings')} />
+          {isOwnProfile ? (
+            <IconButton name="settings" onPress={() => navigation.navigate('Settings')} />
+          ) : (
+            <IconButton name="more-vertical" onPress={() => blockUser()} />
+          )}
         </View>
         <View style={styles.profileRow}>
           <Avatar user={profile} size={92} ring />
           <View style={styles.stats}>
-            <Stat label="Posts" value={profile.postsCount || posts.length} />
-            <Stat label="Followers" value={profile.followersCount || 0} />
-            <Stat label="Following" value={profile.followingCount || 0} />
+            <Stat label="Posts" value={profile.postsCount} />
+            <Stat
+              label="Followers"
+              value={profile.followersCount}
+              onPress={() => navigation.push('UserList', { title: 'Followers', username: profile.username, type: 'followers' })}
+            />
+            <Stat
+              label="Following"
+              value={profile.followingCount}
+              onPress={() => navigation.push('UserList', { title: 'Following', username: profile.username, type: 'following' })}
+            />
           </View>
         </View>
         <Text style={styles.name}>{profile.fullName}</Text>
-        <Text style={styles.bio}>{profile.bio || 'Add a bio to tell people what you create.'}</Text>
+        <Text style={styles.bio}>{profile.bio || 'Snap Talk creator.'}</Text>
         {profile.website ? <Text style={styles.website}>{profile.website}</Text> : null}
         <View style={styles.actions}>
-          <AppButton label="Edit profile" variant="ghost" onPress={() => navigation.navigate('EditProfile')} icon={<Feather name="edit-3" size={17} color={colors.ink} />} style={styles.actionButton} />
+          {isOwnProfile ? (
+            <AppButton label="Edit profile" variant="ghost" onPress={() => navigation.navigate('EditProfile')} icon={<Feather name="edit-3" size={17} color={colors.ink} />} style={styles.actionButton} />
+          ) : (
+            <AppButton
+              label={following ? 'Following' : 'Follow'}
+              variant={following ? 'ghost' : 'primary'}
+              loading={loadingAction}
+              onPress={toggleFollow}
+              style={styles.actionButton}
+            />
+          )}
           <AppButton
-            label="Share profile"
+            label="Share"
             variant="ghost"
             onPress={() => Alert.alert('Profile link', `snaptalk://profile/${profile.username}`)}
             icon={<Feather name="send" size={17} color={colors.ink} />}
@@ -70,13 +156,19 @@ export default function ProfileScreen({ navigation }) {
           />
         </View>
         <View style={styles.tabs}>
-          <Feather name="grid" size={20} color={colors.ink} />
+          <Pressable onPress={() => setActiveTab('grid')}>
+            <Feather name="grid" size={20} color={activeTab === 'grid' ? colors.ink : colors.muted} />
+          </Pressable>
           <Feather name="play-circle" size={20} color={colors.muted} />
-          <Feather name="bookmark" size={20} color={colors.muted} />
+          {isOwnProfile && (
+            <Pressable onPress={() => setActiveTab('saved')}>
+              <Feather name="bookmark" size={20} color={activeTab === 'saved' ? colors.ink : colors.muted} />
+            </Pressable>
+          )}
         </View>
         <View style={styles.grid}>
           {posts.map((post) => (
-            <Pressable key={post._id} style={styles.tile}>
+            <Pressable key={post._id} style={styles.tile} onPress={() => navigation.navigate('PostDetail', { post })}>
               <Image source={{ uri: post.mediaUrl }} style={styles.image} />
             </Pressable>
           ))}
@@ -87,6 +179,10 @@ export default function ProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   screen: {
     backgroundColor: colors.paper,
     flex: 1,

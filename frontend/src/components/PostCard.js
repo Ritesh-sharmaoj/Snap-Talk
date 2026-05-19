@@ -7,10 +7,10 @@ import Avatar from './Avatar';
 import IconButton from './IconButton';
 
 export default function PostCard({ post, onComment, onLike, onProfile, onSave, onShare }) {
-  const [liked, setLiked] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [likes, setLikes] = useState(post.likesCount || post.likes?.length || 0);
-  const [saves, setSaves] = useState(post.savesCount || post.saves?.length || 0);
+  const [liked, setLiked] = useState(post.isLiked || false);
+  const [saved, setSaved] = useState(post.isSaved || false);
+  const [likes, setLikes] = useState(post.likesCount || 0);
+  const [saves, setSaves] = useState(post.savesCount || 0);
 
   const toggleLike = async () => {
     const previousLiked = liked;

@@ -14,6 +14,7 @@ const router = express.Router();
  *     summary: Create a new user account
  *     tags:
  *       - Authentication
+ *     security: []
  *     requestBody:
  *       required: true
  *       content:
@@ -49,14 +50,7 @@ const router = express.Router();
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   type: object
+ *               $ref: '#/components/schemas/AuthResponse'
  */
 router.post(
   '/signup',
@@ -83,6 +77,7 @@ router.post(
  *     summary: Login user
  *     tags:
  *       - Authentication
+ *     security: []
  *     requestBody:
  *       required: true
  *       content:
@@ -102,6 +97,10 @@ router.post(
  *     responses:
  *       200:
  *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
  *       401:
  *         description: Invalid credentials
  */
@@ -116,6 +115,95 @@ router.post(
   authController.login
 );
 
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     tags:
+ *       - Authentication
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: Optional refresh token to revoke.
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ */
+router.post('/logout', protect, authController.logout);
+
+/**
+ * @swagger
+ * /auth/refresh-token:
+ *   post:
+ *     summary: Refresh access token
+ *     tags:
+ *       - Authentication
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Token refreshed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/AuthTokens'
+ */
+router.post(
+  '/refresh-token',
+  authLimiter,
+  [body('refreshToken').notEmpty().withMessage('Refresh token is required.')],
+  validate,
+  authController.refreshToken
+);
+
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Request password reset token
+ *     tags:
+ *       - Authentication
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - identifier
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 description: Email, mobile, or username
+ *     responses:
+ *       200:
+ *         description: Reset token sent
+ */
 router.post(
   '/forgot-password',
   passwordResetLimiter,
@@ -124,6 +212,37 @@ router.post(
   authController.forgotPassword
 );
 
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Reset password with token
+ *     tags:
+ *       - Authentication
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - password
+ *             properties:
+ *               token:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ */
 router.post(
   '/reset-password',
   passwordResetLimiter,
@@ -207,6 +326,35 @@ router.patch(
   validate,
   authController.setupProfile
 );
+/**
+ * @swagger
+ * /auth/change-password:
+ *   patch:
+ *     summary: Change password
+ *     tags:
+ *       - Authentication
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ */
 router.patch(
   '/change-password',
   [

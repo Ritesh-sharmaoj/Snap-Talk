@@ -5,8 +5,21 @@ const ApiError = require('../utils/apiError');
 const createToken = require('../utils/createToken');
 const User = require('../models/User');
 
-const authResponse = (user) => ({
-  token: createToken(user),
+const generateRefreshToken = async (user) => {
+  const token = crypto.randomBytes(40).toString('hex');
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  user.refreshTokens.push({ token, expiresAt });
+  if (user.refreshTokens.length > 5) user.refreshTokens.shift();
+
+  await user.save({ validateBeforeSave: false });
+  return token;
+};
+
+const authResponse = async (user) => ({
+  accessToken: createToken(user),
+  refreshToken: await generateRefreshToken(user),
   user,
 });
 
@@ -37,7 +50,7 @@ const register = asyncHandler(async (req, res) => {
   res.status(201).json({
     success: true,
     message: 'Account created successfully.',
-    data: authResponse(user),
+    data: await authResponse(user),
   });
 });
 
@@ -56,7 +69,46 @@ const login = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: 'Logged in successfully.',
-    data: authResponse(user),
+    data: await authResponse(user),
+  });
+});
+
+const logout = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+  if (refreshToken) {
+    req.user.refreshTokens = req.user.refreshTokens.filter((t) => t.token !== refreshToken);
+    await req.user.save({ validateBeforeSave: false });
+  }
+
+  res.json({
+    success: true,
+    message: 'Logged out successfully.',
+  });
+});
+
+const refreshToken = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    throw new ApiError(400, 'Refresh token is required.');
+  }
+
+  const user = await User.findOne({
+    'refreshTokens.token': refreshToken,
+    'refreshTokens.expiresAt': { $gt: Date.now() },
+  });
+
+  if (!user) {
+    throw new ApiError(401, 'Invalid or expired refresh token.');
+  }
+
+  user.refreshTokens = user.refreshTokens.filter((t) => t.token !== refreshToken);
+
+  res.json({
+    success: true,
+    data: {
+      accessToken: createToken(user),
+      refreshToken: await generateRefreshToken(user),
+    },
   });
 });
 
@@ -104,7 +156,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: 'Password updated successfully.',
-    data: authResponse(user),
+    data: await authResponse(user),
   });
 });
 
@@ -154,6 +206,8 @@ const changePassword = asyncHandler(async (req, res) => {
 module.exports = {
   register,
   login,
+  logout,
+  refreshToken,
   forgotPassword,
   resetPassword,
   getMe,

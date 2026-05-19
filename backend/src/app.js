@@ -1,5 +1,4 @@
 const cors = require('cors');
-const dotenv = require('dotenv');
 const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -7,8 +6,6 @@ const rateLimit = require('express-rate-limit');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpecs = require('./config/swagger');
 const ApiError = require('./utils/apiError');
-
-dotenv.config();
 
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
@@ -27,26 +24,55 @@ const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
+if (process.env.NODE_ENV === 'production' || process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', 1);
+}
+
 const allowedOrigins = (process.env.CLIENT_URL || '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-app.use(helmet());
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const localNetworkOriginPattern = /^https?:\/\/(localhost|127(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?::\d+)?$/;
+
+const isAllowedOrigin = (origin) =>
+  !origin ||
+  allowedOrigins.includes(origin) ||
+  (isDevelopment && localNetworkOriginPattern.test(origin));
+
+const connectSources = [
+  "'self'",
+  ...allowedOrigins,
+  ...(isDevelopment ? ['http:', 'ws:'] : []),
+];
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
+        imgSrc: ["'self'", "data:", "https://res.cloudinary.com"],
+        connectSrc: connectSources,
+      },
+    },
+  })
+);
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin) {
+      if (isAllowedOrigin(origin)) {
         return callback(null, true);
       }
-
-      if (!allowedOrigins.length || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
       return callback(new ApiError(403, 'This origin is not allowed by CORS.'));
     },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,
+    maxAge: 86400, // 24 hours
   })
 );
 app.use(express.json({ limit: '2mb' }));
@@ -55,12 +81,38 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 300,
+    max: 1000, // General limit for all APIs
     standardHeaders: true,
     legacyHeaders: false,
   })
 );
 
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Check API health
+ *     tags:
+ *       - Health
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: API is running
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 name:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -70,7 +122,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, { customCss: '.swagger-ui .topbar { display: none }' }));
+app.use(
+  '/api/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpecs, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Snap Talk API Docs',
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  })
+);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);

@@ -33,6 +33,14 @@ const messageSchema = new mongoose.Schema(
       default: false,
     },
     seenAt: Date,
+    reportsCount: {
+      type: Number,
+      default: 0,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

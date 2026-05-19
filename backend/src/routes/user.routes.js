@@ -105,10 +105,166 @@ router.patch(
   validate,
   userController.updateMe
 );
+/**
+ * @swagger
+ * /users/me/saved-posts:
+ *   get:
+ *     summary: Get current user's saved posts
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Saved posts retrieved successfully
+ */
+router.get('/me/saved-posts', protect, userController.getSavedPosts);
+
+/**
+ * @swagger
+ * /users/me:
+ *   delete:
+ *     summary: Delete current user's account
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ */
 router.delete('/me', protect, userController.deleteMe);
+
+/**
+ * @swagger
+ * /users/{id}/block:
+ *   post:
+ *     summary: Block a user
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID to block
+ *     responses:
+ *       200:
+ *         description: User blocked successfully
+ */
+router.post('/:id/block', protect, userController.blockUser);
+
+/**
+ * @swagger
+ * /users/{id}/unblock:
+ *   post:
+ *     summary: Unblock a user
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID to unblock
+ *     responses:
+ *       200:
+ *         description: User unblocked successfully
+ */
+router.post('/:id/unblock', protect, userController.unblockUser);
+
+/**
+ * @swagger
+ * /users/{idOrUsername}/posts:
+ *   get:
+ *     summary: Get user's posts
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrUsername
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID or username
+ *     responses:
+ *       200:
+ *         description: User posts retrieved successfully
+ */
 router.get('/:idOrUsername/posts', protect, userController.getUserPosts);
+
+/**
+ * @swagger
+ * /users/{idOrUsername}/followers:
+ *   get:
+ *     summary: Get user's followers
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrUsername
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID or username
+ *     responses:
+ *       200:
+ *         description: Followers list retrieved successfully
+ */
 router.get('/:idOrUsername/followers', protect, userController.getFollowers);
+
+/**
+ * @swagger
+ * /users/{idOrUsername}/following:
+ *   get:
+ *     summary: Get user's following list
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrUsername
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID or username
+ *     responses:
+ *       200:
+ *         description: Following list retrieved successfully
+ */
 router.get('/:idOrUsername/following', protect, userController.getFollowing);
+
+/**
+ * @swagger
+ * /users/{idOrUsername}:
+ *   get:
+ *     summary: Get user profile
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idOrUsername
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID or username
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ */
 router.get('/:idOrUsername', protect, userController.getProfile);
 
 module.exports = router;

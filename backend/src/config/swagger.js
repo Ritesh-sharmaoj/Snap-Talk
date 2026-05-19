@@ -1,4 +1,5 @@
 const swaggerJsdoc = require('swagger-jsdoc');
+const path = require('path');
 
 const options = {
   definition: {
@@ -24,10 +25,74 @@ const options = {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
-          description: 'JWT token from login/signup response',
+          description:
+            'Paste data.accessToken from /auth/login or /auth/signup, or data.token from /admin/login. Swagger sends it as Authorization: Bearer <token>.',
         },
       },
       schemas: {
+        ApiSuccess: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Request completed successfully.' },
+            data: { type: 'object' },
+          },
+        },
+        ApiError: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            message: { type: 'string', example: 'Something went wrong.' },
+          },
+        },
+        AuthTokens: {
+          type: 'object',
+          properties: {
+            accessToken: {
+              type: 'string',
+              description: 'JWT bearer token. Use this value in the Swagger Authorize button.',
+            },
+            refreshToken: {
+              type: 'string',
+              description: 'Refresh token used with /auth/refresh-token.',
+            },
+          },
+        },
+        AuthResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Logged in successfully.' },
+            data: {
+              allOf: [
+                { $ref: '#/components/schemas/AuthTokens' },
+                {
+                  type: 'object',
+                  properties: {
+                    user: { $ref: '#/components/schemas/User' },
+                  },
+                },
+              ],
+            },
+          },
+        },
+        AdminAuthResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string', example: 'Admin logged in.' },
+            data: {
+              type: 'object',
+              properties: {
+                token: {
+                  type: 'string',
+                  description: 'Admin JWT bearer token. Use this value in the Swagger Authorize button.',
+                },
+                user: { $ref: '#/components/schemas/User' },
+              },
+            },
+          },
+        },
         User: {
           type: 'object',
           properties: {
@@ -73,6 +138,14 @@ const options = {
             createdAt: { type: 'string', format: 'date-time' },
           },
         },
+        UploadResult: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            publicId: { type: 'string' },
+            resourceType: { type: 'string', enum: ['image', 'video'] },
+          },
+        },
       },
     },
     security: [
@@ -81,7 +154,7 @@ const options = {
       },
     ],
   },
-  apis: ['./src/routes/*.js'],
+  apis: [path.join(__dirname, '../app.js'), path.join(__dirname, '../routes/*.js')],
 };
 
 const specs = swaggerJsdoc(options);

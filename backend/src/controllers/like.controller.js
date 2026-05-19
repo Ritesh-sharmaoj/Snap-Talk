@@ -5,7 +5,7 @@ const Post = require('../models/Post');
 const Reel = require('../models/Reel');
 const Comment = require('../models/Comment');
 
-const toggleLike = async ({ model, id, user, notifyType, entityType, textBuilder }) => {
+const toggleLike = async ({ model, id, user, notifyType, entityType, textBuilder, io }) => {
   const doc = await model.findById(id);
 
   if (!doc || doc.isDeleted) {
@@ -27,6 +27,7 @@ const toggleLike = async ({ model, id, user, notifyType, entityType, textBuilder
       entityType,
       entity: doc._id,
       text: textBuilder(user),
+      io,
     });
   }
 
@@ -44,6 +45,7 @@ const likePost = asyncHandler(async (req, res) => {
     notifyType: 'like',
     entityType: 'Post',
     textBuilder: (user) => `${user.username} liked your post.`,
+    io: req.app.get('io'),
   });
 
   res.json({ success: true, data });
@@ -57,6 +59,7 @@ const likeReel = asyncHandler(async (req, res) => {
     notifyType: 'like',
     entityType: 'Reel',
     textBuilder: (user) => `${user.username} liked your reel.`,
+    io: req.app.get('io'),
   });
 
   res.json({ success: true, data });
@@ -83,6 +86,7 @@ const likeComment = asyncHandler(async (req, res) => {
       entityType: 'Comment',
       entity: comment._id,
       text: `${req.user.username} liked your comment.`,
+      io: req.app.get('io'),
     });
   }
 
@@ -95,8 +99,33 @@ const likeComment = asyncHandler(async (req, res) => {
   });
 });
 
+const getLikes = asyncHandler(async (req, res) => {
+  const { type, id } = req.params;
+  let model;
+
+  if (type === 'posts') model = Post;
+  else if (type === 'reels') model = Reel;
+  else if (type === 'comments') model = Comment;
+  else throw new ApiError(400, 'Invalid type.');
+
+  const doc = await model.findById(id).populate('likes', 'username fullName avatar');
+
+  if (!doc || doc.isDeleted) {
+    throw new ApiError(404, 'Entity not found.');
+  }
+
+  res.json({
+    success: true,
+    data: {
+      likes: doc.likes,
+      likesCount: doc.likes.length,
+    },
+  });
+});
+
 module.exports = {
   likePost,
   likeReel,
   likeComment,
+  getLikes,
 };

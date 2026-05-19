@@ -8,7 +8,10 @@ const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || res.statusCode || 500;
   let message = err.message || 'Something went wrong.';
 
-  if (err.name === 'ValidationError') {
+  if (err instanceof ApiError) {
+    statusCode = err.statusCode;
+    message = err.message;
+  } else if (err.name === 'ValidationError') {
     statusCode = 422;
     message = Object.values(err.errors)
       .map((item) => item.message)
@@ -29,6 +32,15 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'TokenExpiredError') {
     statusCode = 401;
     message = 'Authentication token has expired.';
+  }
+
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    statusCode = 422;
+    message = 'File size is too large. Max limit is 20MB.';
+  }
+
+  if (process.env.NODE_ENV === 'production' && statusCode === 500) {
+    message = 'An internal server error occurred.';
   }
 
   res.status(statusCode).json({

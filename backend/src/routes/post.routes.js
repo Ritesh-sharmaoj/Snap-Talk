@@ -2,6 +2,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const postController = require('../controllers/post.controller');
 const { protect } = require('../middleware/auth');
+const { checkOwnership } = require('../middleware/security');
 const validate = require('../middleware/validate');
 
 const router = express.Router();
@@ -124,6 +125,48 @@ router.get('/:postId', protect, postController.getPost);
 
 /**
  * @swagger
+ * /posts/{postId}:
+ *   patch:
+ *     summary: Update a post
+ *     tags:
+ *       - Posts
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               caption:
+ *                 type: string
+ *                 maxLength: 2200
+ *               location:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Post updated successfully
+ */
+router.patch(
+  '/:postId',
+  [
+    protect,
+    checkOwnership('Post', 'postId'),
+    body('caption').optional({ checkFalsy: true }).isLength({ max: 2200 }).withMessage('Caption is too long.'),
+    body('location').optional().trim(),
+  ],
+  validate,
+  postController.updatePost
+);
+
+/**
+ * @swagger
  * /posts/{postId}/save:
  *   post:
  *     summary: Save a post to bookmarks
@@ -183,6 +226,6 @@ router.post('/:postId/share', protect, postController.sharePost);
  *       200:
  *         description: Post deleted successfully
  */
-router.delete('/:postId', protect, postController.deletePost);
+router.delete('/:postId', protect, checkOwnership('Post', 'postId'), postController.deletePost);
 
 module.exports = router;

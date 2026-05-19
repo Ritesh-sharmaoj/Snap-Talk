@@ -14,7 +14,12 @@ const followUser = asyncHandler(async (req, res) => {
     throw new ApiError(422, 'You cannot follow yourself.');
   }
 
-  if (!req.user.following.some((id) => id.equals(target._id))) {
+  // Check if blocked
+  if (req.user.blockedUsers.includes(target._id) || target.blockedUsers.includes(req.user._id)) {
+    throw new ApiError(403, 'You cannot follow this user.');
+  }
+
+  if (!req.user.following.includes(target._id)) {
     req.user.following.push(target._id);
     target.followers.push(req.user._id);
     await Promise.all([req.user.save(), target.save()]);
@@ -26,6 +31,7 @@ const followUser = asyncHandler(async (req, res) => {
       entityType: 'User',
       entity: req.user._id,
       text: `${req.user.username} started following you.`,
+      io: req.app.get('io'),
     });
   }
 

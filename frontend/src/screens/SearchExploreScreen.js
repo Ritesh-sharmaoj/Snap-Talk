@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { api } from '../api/client';
@@ -12,29 +13,15 @@ import UserRow from '../components/UserRow';
 
 export default function SearchExploreScreen() {
   const { isDemo } = useAuth();
+  const navigation = useNavigation();
   const [query, setQuery] = useState('');
   const [followed, setFollowed] = useState({});
-  const [users, setUsers] = useState(mockUsers.slice(1));
-  const [posts, setPosts] = useState(mockPosts);
+  const [users, setUsers] = useState([]);
+  const [posts, setPosts] = useState([]);
   const [loadingFollow, setLoadingFollow] = useState({});
 
   useEffect(() => {
     const load = async () => {
-      if (isDemo) {
-        const q = query.toLowerCase().replace('#', '');
-        setUsers(
-          query.trim()
-            ? mockUsers.filter((user) => user.username.includes(q) || user.fullName.toLowerCase().includes(q))
-            : mockUsers.slice(1)
-        );
-        setPosts(
-          query.trim()
-            ? mockPosts.filter((post) => post.caption.toLowerCase().includes(q) || post.hashtags?.includes(q))
-            : mockPosts
-        );
-        return;
-      }
-
       try {
         if (query.trim()) {
           const normalized = query.trim().replace('#', '');
@@ -50,8 +37,22 @@ export default function SearchExploreScreen() {
           setPosts(postRes.data.data);
         }
       } catch (_error) {
-        setUsers(mockUsers.slice(1));
-        setPosts(mockPosts);
+        if (isDemo) {
+          const q = query.toLowerCase().replace('#', '');
+          setUsers(
+            query.trim()
+              ? mockUsers.filter((user) => user.username.includes(q) || user.fullName.toLowerCase().includes(q))
+              : mockUsers.slice(1)
+          );
+          setPosts(
+            query.trim()
+              ? mockPosts.filter((post) => post.caption.toLowerCase().includes(q) || post.hashtags?.includes(q))
+              : mockPosts
+          );
+        } else {
+          setUsers([]);
+          setPosts([]);
+        }
       }
     };
 
@@ -90,6 +91,7 @@ export default function SearchExploreScreen() {
             <UserRow
               key={user._id}
               user={user}
+              onPress={() => navigation.navigate('Profile', { username: user.username })}
               right={
                 <AppButton
                   label={(Object.prototype.hasOwnProperty.call(followed, user._id) ? followed[user._id] : user.isFollowing) ? 'Following' : 'Follow'}
@@ -112,7 +114,7 @@ export default function SearchExploreScreen() {
           </View>
           <View style={styles.grid}>
             {posts.map((post) => (
-              <Pressable key={post._id} style={styles.tile}>
+              <Pressable key={post._id} style={styles.tile} onPress={() => navigation.navigate('PostDetail', { post })}>
                 <Image source={{ uri: post.mediaUrl }} style={styles.tileImage} />
               </Pressable>
             ))}

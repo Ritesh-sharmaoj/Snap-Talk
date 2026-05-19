@@ -4,10 +4,15 @@ const User = require('../models/User');
 
 const onlineUsers = new Map();
 
+const socketOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const initSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL?.split(',') || '*',
+      origin: socketOrigins.length ? socketOrigins : '*',
       credentials: true,
     },
   });
@@ -20,17 +25,23 @@ const initSocket = (server) => {
         return next(new Error('Socket token required.'));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        return next(new Error('Invalid socket token.'));
+      }
+
       const user = await User.findById(decoded.id);
 
-      if (!user || user.isBlocked) {
+      if (!user || user.isBlocked || user.isDeleted) {
         return next(new Error('Socket authentication failed.'));
       }
 
       socket.user = user;
       next();
     } catch (error) {
-      next(error);
+      next(new Error('Internal socket error.'));
     }
   });
 

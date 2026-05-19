@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { api } from '../api/client';
+import { getSocket } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
 import { mockChats } from '../data/mockData';
 import { timeAgo } from '../utils/timeAgo';
@@ -11,66 +12,125 @@ import ScreenHeader from '../components/ScreenHeader';
 
 export default function ChatListScreen({ navigation }) {
   const { isDemo, user } = useAuth();
-  const [chats, setChats] = useState(mockChats);
+  const [chats, setChats] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (isDemo) return;
-
+    if (!user?._id && !isDemo) return;
     try {
+      setLoading(true);
+      if (isDemo) {
+        setChats(mockChats);
+        return;
+      }
+
       const response = await api.get('/messages/conversations');
       const conversations = response.data.data.map((message) => {
-        const other = message.sender._id === user._id ? message.recipient : message.sender;
+        const other = message.sender?._id === user?._id ? message.recipient : message.sender;
         return {
           _id: message.conversationId,
-          user: other,
-          lastMessage: message.text || 'Image message',
-          unread: message.recipient._id === user._id && !message.seen ? 1 : 0,
+          user: other || {},
+          lastMessage: message.text || '📷 Image',
+          unread: message.recipient?._id === user?._id && !message.seen ? 1 : 0,
           createdAt: message.createdAt,
         };
       });
       setChats(conversations);
     } catch (_error) {
       setChats(mockChats);
+    } finally {
+      setLoading(false);
     }
-  }, [isDemo, user]);
+  }, [isDemo, user?._id]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !user?._id) return undefined;
+
+    const updateConversation = (message) => {
+      setChats((current) => {
+        const other = message.sender?._id === user._id ? message.recipient : message.sender;
+        
+        const updatedChat = {
+          _id: message.conversationId,
+          user: other || {},
+          lastMessage: message.text || '📷 Image',
+          unread: message.recipient?._id === user._id && !message.seen ? 1 : 0,
+          createdAt: message.createdAt,
+        };
+
+        const filtered = current.filter((c) => c._id !== message.conversationId);
+        return [updatedChat, ...filtered];
+      });
+    };
+
+    const onSeen = ({ conversationId }) => {
+      setChats((current) =>
+        current.map((c) => (c._id === conversationId ? { ...c, unread: 0 } : c))
+      );
+    };
+
+    const onPresence = ({ userId, online }) => {
+      setChats((current) =>
+        current.map((c) => (c.user?._id === userId ? { ...c, user: { ...c.user, online } } : c))
+      );
+    };
+
+    socket.on('message:new', updateConversation);
+    socket.on('message:sent', updateConversation);
+    socket.on('message:seen', onSeen);
+    socket.on('presence:update', onPresence);
+
+    return () => {
+      socket.off('message:new', updateConversation);
+      socket.off('message:sent', updateConversation);
+      socket.off('message:seen', onSeen);
+      socket.off('presence:update', onPresence);
+    };
+  }, [user?._id]);
+
   return (
     <View style={styles.screen}>
       <ScreenHeader title="Messages" subtitle="Real-time direct chat" onBack={() => navigation.goBack()} />
-      <FlatList
-        data={chats}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={<EmptyState icon="message-circle" title="No chats yet" text="Start a conversation from a profile or shared post." />}
-        renderItem={({ item }) => (
-          <Pressable style={styles.chat} onPress={() => navigation.navigate('Chat', { chat: item })}>
-            <View>
-              <Avatar user={item.user} size={54} />
-              {item.user.online ? <View style={styles.online} /> : null}
-            </View>
-            <View style={styles.copy}>
-              <View style={styles.topRow}>
-                <Text numberOfLines={1} style={styles.name}>
-                  {item.user.fullName}
+      {loading && chats.length === 0 ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.mintDark} />
+        </View>
+      ) : (
+        <FlatList
+          data={chats}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<EmptyState icon="message-circle" title="No chats yet" text="Start a conversation from a profile or shared post." />}
+          onRefresh={load}
+          refreshing={loading}
+          renderItem={({ item }) => (
+            <Pressable style={styles.chat} onPress={() => navigation.navigate('Chat', { chat: item })}>
+              <Avatar user={item.user} size={54} showStatus />
+              <View style={styles.copy}>
+                <View style={styles.topRow}>
+                  <Text numberOfLines={1} style={styles.name}>
+                    {item.user?.fullName || 'User'}
+                  </Text>
+                  <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
+                </View>
+                <Text numberOfLines={1} style={styles.message}>
+                  {item.lastMessage}
                 </Text>
-                <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
               </View>
-              <Text numberOfLines={1} style={styles.message}>
-                {item.lastMessage}
-              </Text>
-            </View>
-            {item.unread ? (
-              <View style={styles.unread}>
-                <Text style={styles.unreadText}>{item.unread}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-        )}
-      />
+              {item.unread ? (
+                <View style={styles.unread}>
+                  <Text style={styles.unreadText}>{item.unread}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+          )}
+        />
+      )}
     </View>
   );
 }
@@ -79,6 +139,11 @@ const styles = StyleSheet.create({
   screen: {
     backgroundColor: colors.paper,
     flex: 1,
+  },
+  center: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
   list: {
     padding: 16,
@@ -93,17 +158,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
     padding: 12,
-  },
-  online: {
-    backgroundColor: colors.success,
-    borderColor: colors.card,
-    borderRadius: 7,
-    borderWidth: 2,
-    bottom: 1,
-    height: 14,
-    position: 'absolute',
-    right: 2,
-    width: 14,
   },
   copy: {
     flex: 1,

@@ -5,8 +5,20 @@ const Post = require('../models/Post');
 
 const populatePost = (query) => query.populate('author', 'username fullName avatar');
 
+const attachUserFlags = (posts, user) => {
+  const postList = Array.isArray(posts) ? posts : [posts];
+  return postList.map((post) => {
+    const p = post.toObject ? post.toObject() : post;
+    return {
+      ...p,
+      isLiked: user ? p.likes?.some((id) => id.toString() === user._id.toString()) : false,
+      isSaved: user ? user.savedPosts?.some((id) => id.toString() === p._id.toString()) : false,
+    };
+  });
+};
+
 const createPost = asyncHandler(async (req, res) => {
-  const { mediaUrl, mediaType = 'image', thumbnailUrl, caption = '', location } = req.body;
+  const { mediaUrl, mediaPublicId, mediaType = 'image', thumbnailUrl, caption = '', location } = req.body;
 
   if (!mediaUrl) {
     throw new ApiError(422, 'mediaUrl is required. Upload media first or provide an existing URL.');
@@ -17,6 +29,7 @@ const createPost = asyncHandler(async (req, res) => {
   const post = await Post.create({
     author: req.user._id,
     mediaUrl,
+    mediaPublicId,
     mediaType,
     thumbnailUrl,
     caption,
@@ -29,7 +42,35 @@ const createPost = asyncHandler(async (req, res) => {
   res.status(201).json({
     success: true,
     message: 'Post published.',
-    data: post,
+    data: attachUserFlags(post, req.user)[0],
+  });
+});
+
+const updatePost = asyncHandler(async (req, res) => {
+  const { caption, location, hashtags } = req.body;
+  const post = await Post.findOne({ _id: req.params.postId, isDeleted: false });
+
+  if (!post) {
+    throw new ApiError(404, 'Post not found.');
+  }
+
+  if (!post.author.equals(req.user._id)) {
+    throw new ApiError(403, 'You can edit only your own posts.');
+  }
+
+  if (caption !== undefined) {
+    post.caption = caption;
+    post.hashtags = [...new Set([...(hashtags || []), ...extractHashtags(caption)])];
+  }
+  if (location !== undefined) post.location = location;
+
+  await post.save();
+  await post.populate('author', 'username fullName avatar');
+
+  res.json({
+    success: true,
+    message: 'Post updated.',
+    data: attachUserFlags(post, req.user)[0],
   });
 });
 
@@ -39,7 +80,7 @@ const getFeed = asyncHandler(async (req, res) => {
     Post.find({ author: { $in: authors }, isDeleted: false }).sort({ createdAt: -1 }).limit(50)
   );
 
-  res.json({ success: true, data: posts });
+  res.json({ success: true, data: attachUserFlags(posts, req.user) });
 });
 
 const getExplore = asyncHandler(async (req, res) => {
@@ -49,7 +90,7 @@ const getExplore = asyncHandler(async (req, res) => {
       .limit(60)
   );
 
-  res.json({ success: true, data: posts });
+  res.json({ success: true, data: attachUserFlags(posts, req.user) });
 });
 
 const getPost = asyncHandler(async (req, res) => {
@@ -59,7 +100,7 @@ const getPost = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Post not found.');
   }
 
-  res.json({ success: true, data: post });
+  res.json({ success: true, data: attachUserFlags(post, req.user)[0] });
 });
 
 const getPostsByHashtag = asyncHandler(async (req, res) => {
@@ -68,7 +109,7 @@ const getPostsByHashtag = asyncHandler(async (req, res) => {
     Post.find({ hashtags: tag, isDeleted: false }).sort({ createdAt: -1 }).limit(50)
   );
 
-  res.json({ success: true, data: posts });
+  res.json({ success: true, data: attachUserFlags(posts, req.user) });
 });
 
 const savePost = asyncHandler(async (req, res) => {
@@ -134,6 +175,7 @@ const deletePost = asyncHandler(async (req, res) => {
 
 module.exports = {
   createPost,
+  updatePost,
   getFeed,
   getExplore,
   getPost,

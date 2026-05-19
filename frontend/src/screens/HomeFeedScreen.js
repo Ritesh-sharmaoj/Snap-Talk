@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import { api } from '../api/client';
+import { getSocket } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
 import { mockPosts, mockStories } from '../data/mockData';
 import EmptyState from '../components/EmptyState';
@@ -15,27 +17,47 @@ import StoryBubble from '../components/StoryBubble';
 export default function HomeFeedScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { isDemo } = useAuth();
-  const [posts, setPosts] = useState(mockPosts);
-  const [stories, setStories] = useState(mockStories);
+  const [posts, setPosts] = useState(isDemo ? mockPosts : []);
+  const [stories, setStories] = useState(isDemo ? mockStories : []);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [commentTarget, setCommentTarget] = useState(null);
 
   const load = useCallback(async () => {
-    if (isDemo) return;
-
     try {
-      const [storyRes, postRes] = await Promise.all([api.get('/stories'), api.get('/posts/feed')]);
-      setStories(storyRes.data.data.length ? storyRes.data.data : mockStories);
-      setPosts(postRes.data.data.length ? postRes.data.data : mockPosts);
+      const [storyRes, postRes, notifRes] = await Promise.all([
+        api.get('/stories'),
+        api.get('/posts/feed'),
+        api.get('/notifications'),
+      ]);
+      setStories(storyRes.data.data);
+      setPosts(postRes.data.data);
+      setUnreadCount(notifRes.data.data.unreadCount);
     } catch (_error) {
-      setStories(mockStories);
-      setPosts(mockPosts);
+      if (!isDemo) {
+        setStories([]);
+        setPosts([]);
+      }
     }
   }, [isDemo]);
 
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
   useEffect(() => {
-    load();
-  }, [load]);
+    const socket = getSocket();
+    if (!socket) return undefined;
+
+    const onNewNotification = () => {
+      setUnreadCount((prev) => prev + 1);
+    };
+
+    socket.on('notification:new', onNewNotification);
+    return () => socket.off('notification:new', onNewNotification);
+  }, []);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -44,23 +66,16 @@ export default function HomeFeedScreen({ navigation }) {
   };
 
   const likePost = async (post) => {
-    if (isDemo) return null;
     const response = await api.post(`/likes/posts/${post._id}`);
     return response.data.data;
   };
 
   const savePost = async (post) => {
-    if (isDemo) return null;
     const response = await api.post(`/posts/${post._id}/save`);
     return response.data.data;
   };
 
   const sharePost = async (post) => {
-    if (isDemo) {
-      Alert.alert('Share tracked', 'Demo mode me share local count update hota hai.');
-      return null;
-    }
-
     const response = await api.post(`/posts/${post._id}/share`);
     Alert.alert('Share tracked', 'Post share count update ho gaya.');
     return response.data.data;
@@ -71,7 +86,11 @@ export default function HomeFeedScreen({ navigation }) {
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <SnapLogo />
         <View style={styles.headerActions}>
-          <IconButton name="bell" onPress={() => navigation.navigate('Notifications')} />
+          <IconButton
+            name="bell"
+            onPress={() => navigation.navigate('Notifications')}
+            badge={unreadCount > 0 ? unreadCount : null}
+          />
           <IconButton name="message-circle" onPress={() => navigation.navigate('ChatList')} />
         </View>
       </View>
@@ -101,6 +120,7 @@ export default function HomeFeedScreen({ navigation }) {
               onLike={likePost}
               onSave={savePost}
               onShare={sharePost}
+              onProfile={(author) => navigation.navigate('Profile', { username: author.username })}
             />
           ))
         ) : (

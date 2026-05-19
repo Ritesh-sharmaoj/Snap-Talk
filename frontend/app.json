@@ -15,6 +15,7 @@
     },
     "android": {
       "package": "com.snaptalk.mobile",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#0F1724"
       },

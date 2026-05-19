@@ -32,12 +32,7 @@ export default function CreatePostScreen() {
   };
 
   const uploadAsset = async () => {
-    if (!asset || isDemo) {
-      return {
-        mediaUrl: asset?.uri || mockPosts[0].mediaUrl,
-        mediaType: asset?.type || 'image',
-      };
-    }
+    if (!asset) return null;
 
     const data = new FormData();
     data.append('media', {
@@ -52,12 +47,13 @@ export default function CreatePostScreen() {
 
     return {
       mediaUrl: response.data.data.url,
+      mediaPublicId: response.data.data.publicId,
       mediaType: response.data.data.mediaType,
     };
   };
 
   const publish = async () => {
-    if (!asset && !isDemo) {
+    if (!asset) {
       Alert.alert('Choose media', 'Select an image or video before publishing.');
       return;
     }
@@ -70,32 +66,32 @@ export default function CreatePostScreen() {
         .map((tag) => tag.trim().replace('#', ''))
         .filter(Boolean);
 
-      if (!isDemo) {
-        if (mode === 'story') {
-          await api.post('/stories', {
-            mediaUrl: media.mediaUrl,
-            mediaType: media.mediaType,
-            caption,
-          });
-        } else if (mode === 'reel') {
-          if (media.mediaType !== 'video') {
-            Alert.alert('Video required', 'Reel publish karne ke liye video select karo.');
-            return;
-          }
-
-          await api.post('/reels', {
-            videoUrl: media.mediaUrl,
-            caption,
-            hashtags: tagList,
-            audioTitle: 'Original audio',
-          });
-        } else {
-          await api.post('/posts', {
-            ...media,
-            caption,
-            hashtags: tagList,
-          });
+      if (mode === 'story') {
+        await api.post('/stories', {
+          mediaUrl: media.mediaUrl,
+          mediaPublicId: media.mediaPublicId,
+          mediaType: media.mediaType,
+          caption,
+        });
+      } else if (mode === 'reel') {
+        if (media.mediaType !== 'video') {
+          Alert.alert('Video required', 'Reel publish karne ke liye video select karo.');
+          return;
         }
+
+        await api.post('/reels', {
+          videoUrl: media.mediaUrl,
+          videoPublicId: media.mediaPublicId,
+          caption,
+          hashtags: tagList,
+          audioTitle: 'Original audio',
+        });
+      } else {
+        await api.post('/posts', {
+          ...media,
+          caption,
+          hashtags: tagList,
+        });
       }
 
       setAsset(null);

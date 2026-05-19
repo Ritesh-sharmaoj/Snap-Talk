@@ -64,6 +64,12 @@ const userSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
+    blockedUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
     savedPosts: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -82,6 +88,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    reportsCount: {
+      type: Number,
+      default: 0,
+    },
     role: {
       type: String,
       enum: ['user', 'admin'],
@@ -99,6 +109,12 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    refreshTokens: [
+      {
+        token: String,
+        expiresAt: Date,
+      },
+    ],
     resetPasswordToken: String,
     resetPasswordExpires: Date,
   },

@@ -3,10 +3,18 @@ const ApiError = require('../utils/apiError');
 const Report = require('../models/Report');
 const Post = require('../models/Post');
 const Reel = require('../models/Reel');
+const Story = require('../models/Story');
+const Comment = require('../models/Comment');
+const User = require('../models/User');
+const Message = require('../models/Message');
 
 const targetsWithReportCount = {
   Post,
   Reel,
+  Story,
+  Comment,
+  User,
+  Message,
 };
 
 const createReport = asyncHandler(async (req, res) => {

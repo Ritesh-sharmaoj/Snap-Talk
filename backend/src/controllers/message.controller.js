@@ -49,6 +49,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     entityType: 'Message',
     entity: message._id,
     text: `${req.user.username} sent you a message.`,
+    io: req.app.get('io'),
   });
 
   const io = req.app.get('io');

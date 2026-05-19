@@ -6,8 +6,74 @@ const validate = require('../middleware/validate');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /messages/conversations:
+ *   get:
+ *     summary: List chat conversations
+ *     tags:
+ *       - Messages
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Conversations retrieved successfully
+ */
 router.get('/conversations', protect, messageController.getConversations);
+
+/**
+ * @swagger
+ * /messages/{userId}:
+ *   get:
+ *     summary: Get message thread with a user
+ *     tags:
+ *       - Messages
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Message thread retrieved successfully
+ */
 router.get('/:userId', protect, messageController.getThread);
+
+/**
+ * @swagger
+ * /messages:
+ *   post:
+ *     summary: Send a message
+ *     tags:
+ *       - Messages
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipientId
+ *             properties:
+ *               recipientId:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [text, image]
+ *               text:
+ *                 type: string
+ *                 maxLength: 2000
+ *               mediaUrl:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Message sent successfully
+ */
 router.post(
   '/',
   [
@@ -20,6 +86,26 @@ router.post(
   validate,
   messageController.sendMessage
 );
+
+/**
+ * @swagger
+ * /messages/{userId}/seen:
+ *   patch:
+ *     summary: Mark conversation as seen
+ *     tags:
+ *       - Messages
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Conversation marked as seen successfully
+ */
 router.patch('/:userId/seen', protect, messageController.markSeen);
 
 module.exports = router;

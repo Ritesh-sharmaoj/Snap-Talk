@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -8,21 +8,35 @@ import CommentSheet from '../components/CommentSheet';
 import ReelCard from '../components/ReelCard';
 import ScreenHeader from '../components/ScreenHeader';
 
-export default function ReelsScreen() {
+export default function ReelsScreen({ navigation }) {
   const { isDemo } = useAuth();
-  const [reels, setReels] = useState(mockReels);
+  const [reels, setReels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [commentTarget, setCommentTarget] = useState(null);
 
   const load = useCallback(async () => {
-    if (isDemo) return;
-
     try {
+      setLoading(true);
+      setError(null);
+      
+      if (isDemo) {
+        setReels(mockReels);
+        setLoading(false);
+        return;
+      }
+
       const response = await api.get('/reels');
       setReels(response.data.data.length ? response.data.data : mockReels);
-    } catch (_error) {
-      setReels(mockReels);
+    } catch (_err) {
+      setError('Reels load nahi ho paayi. Dobara koshish karein.');
+      if (reels.length === 0) {
+        setReels(mockReels);
+      }
+    } finally {
+      setLoading(false);
     }
-  }, [isDemo]);
+  }, [isDemo, reels.length]);
 
   useEffect(() => {
     load();
@@ -40,20 +54,50 @@ export default function ReelsScreen() {
     return response.data.data;
   };
 
+  const deleteReel = async (reel) => {
+    if (isDemo) {
+      setReels((current) => current.filter((r) => r._id !== reel._id));
+      return;
+    }
+    await api.delete(`/reels/${reel._id}`);
+    setReels((current) => current.filter((r) => r._id !== reel._id));
+  };
+
   return (
     <View style={styles.screen}>
       <ScreenHeader title="Reels" subtitle="Swipe vertical shorts" />
-      <FlatList
-        data={reels}
-        keyExtractor={(item) => item._id}
-        renderItem={({ item }) => (
-          <ReelCard reel={item} onComment={setCommentTarget} onLike={likeReel} onShare={shareReel} />
-        )}
-        pagingEnabled
-        showsVerticalScrollIndicator={false}
-        snapToAlignment="start"
-        decelerationRate="fast"
-      />
+      
+      {loading && reels.length === 0 ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.mintDark} />
+        </View>
+      ) : error && reels.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={reels}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item }) => (
+            <ReelCard
+              reel={item}
+              onComment={setCommentTarget}
+              onLike={likeReel}
+              onShare={shareReel}
+              onDelete={deleteReel}
+              onProfile={(author) => navigation.navigate('Profile', { username: author.username })}
+            />
+          )}
+          pagingEnabled
+          showsVerticalScrollIndicator={false}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          onRefresh={load}
+          refreshing={loading}
+        />
+      )}
+
       <CommentSheet
         visible={Boolean(commentTarget)}
         targetType="Reel"
@@ -69,5 +113,15 @@ const styles = StyleSheet.create({
   screen: {
     backgroundColor: colors.ink,
     flex: 1,
+  },
+  center: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: colors.card,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
