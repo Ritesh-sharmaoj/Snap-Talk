@@ -4,6 +4,7 @@ const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const ApiError = require('./utils/apiError');
 
 dotenv.config();
 
@@ -24,10 +25,25 @@ const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
+const allowedOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL?.split(',') || '*',
+    origin(origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (!allowedOrigins.length || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new ApiError(403, 'This origin is not allowed by CORS.'));
+    },
     credentials: true,
   })
 );

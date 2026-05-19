@@ -22,7 +22,7 @@ const protect = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, 'User account no longer exists.');
   }
 
-  if (user.isBlocked) {
+  if (user.isBlocked || user.isDeleted) {
     throw new ApiError(403, 'Your account has been blocked.');
   }
 

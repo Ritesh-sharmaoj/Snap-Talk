@@ -10,6 +10,8 @@ const authResponse = (user) => ({
   user,
 });
 
+const shouldExposeResetToken = process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_RESET_TOKENS === 'true';
+
 const findByIdentifier = (identifier) => {
   const normalized = String(identifier).trim().toLowerCase();
   return User.findOne({
@@ -76,10 +78,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: 'Password reset token generated.',
-    data: {
-      resetToken: process.env.NODE_ENV === 'production' ? undefined : resetToken,
-    },
+    message: 'If an account exists, a reset link will be sent.',
+    data: shouldExposeResetToken ? { resetToken } : undefined,
   });
 });
 
